@@ -1,6 +1,6 @@
-# ###########################################################################
-# implement from the skeleton in https://github.com/LambdaSchool/C-Web-Server
-# ###########################################################################
+
+# _Implement from the skeleton in https://github.com/LambdaSchool/C-Web-Server_
+
 
 
 # A Simple Web Server in C

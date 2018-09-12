@@ -193,6 +193,9 @@ int send_response(int fd, char *header, char *content_type, char *body)
 
   // !!!!  IMPLEMENT ME
 
+  response_length = sprintf(response, "%s\r\n%s\r\n\r\n%s\n", header, content_type, body);
+  printf("My response:\n%s\n", response);
+
   // Send it all!
   int rv = send(fd, response, response_length, 0);
 
@@ -218,7 +221,7 @@ void resp_404(int fd)
 void get_root(int fd)
 {
   // !!!! IMPLEMENT ME
-  //send_response(...
+    send_response(fd, "HTTP/1.1 200 OK", "text/html", "<h1>Hello world</h1>");
 }
 
 /**
@@ -266,49 +269,70 @@ char *find_start_of_body(char *header)
  */
 void handle_http_request(int fd)
 {
-  const int request_buffer_size = 65536; // 64K
-  char request[request_buffer_size];
-  char *p;
-  char request_type[8]; // GET or POST
-  char request_path[1024]; // /info etc.
-  char request_protocol[128]; // HTTP/1.1
-  char *token;
+    const int request_buffer_size = 65536; // 64K
+    char request[request_buffer_size];
+    char *p;
+    char request_type[8]; // GET or POST
+    char request_path[1024]; // /info etc.
+    char request_protocol[128]; // HTTP/1.1
+    char *token;
 
-  // Read request
-  int bytes_recvd = recv(fd, request, request_buffer_size - 1, 0);
+    // Read request
+    int bytes_recvd = recv(fd, request, request_buffer_size - 1, 0);
 
-  if (bytes_recvd < 0) {
+    if (bytes_recvd < 0) {
     perror("recv");
     return;
-  }
+    }
 
-   // NUL terminate request string
-  request[bytes_recvd] = '\0';
+    // NUL terminate request string
+    request[bytes_recvd] = '\0';
 
-  // !!!! IMPLEMENT ME
-  // Get the request type and path from the first line
-  // Hint: sscanf()!
-  printf("Debug-request:\n");
-  printf("%s\n", request);
-  sscanf(request, "%s %s %s", request_type, request_path, request_protocol);
-  printf("Debug-request-type: %s\n", request_type);
-  printf("Debug-request-path: %s\n", request_path);
-  printf("Debug-request-protocol: %s\n", request_protocol);
+    // !!!! IMPLEMENT ME
+    // Get the request type and path from the first line
+    // Hint: sscanf()!
+    printf("Debug-request:\n");
+    printf("%s\n", request);
+    sscanf(request, "%s %s %s", request_type, request_path, request_protocol);
+    printf("Debug-request-type: %s\n", request_type);
+    printf("Debug-request-path: %s\n", request_path);
+    printf("Debug-request-protocol: %s\n", request_protocol);
 
-  token = strtok(request, "\n");
+    token = strtok(request, "\n");
 
-  while(token != NULL)
-  {
+    while(token != NULL)
+    {
     printf("My line: %s\n", token);
     token = strtok(NULL, "\n");
-  }
+    }
+
+    if (strcmp(request_type,"GET") == 0)
+    {
+    //do GET
+    if (strcmp(request_path, "/") == 0)
+    {
+        get_root(fd);
+    }
+    else if (strcmp(request_path, "/d20") == 0)
+    {
+    //get_d20(fd);
+    }
+    else if (strcmp(request_path, "/date") == 0)
+    {
+    //get_date(fd);
+    }
+    } 
+    else if (strcmp(request_type,"POST") == 0)
+    {
+    //do POST
+    }
 
 
-  // !!!! IMPLEMENT ME (stretch goal)
-  // find_start_of_body()
+    // !!!! IMPLEMENT ME (stretch goal)
+    // find_start_of_body()
 
-  // !!!! IMPLEMENT ME
-  // call the appropriate handler functions, above, with the incoming data
+    // !!!! IMPLEMENT ME
+    // call the appropriate handler functions, above, with the incoming data
 }
 
 /**
@@ -316,28 +340,28 @@ void handle_http_request(int fd)
  */
 int main(void)
 {
-  int newfd;  // listen on sock_fd, new connection on newfd
-  struct sockaddr_storage their_addr; // connector's address information
-  char s[INET6_ADDRSTRLEN];
+    int newfd;  // listen on sock_fd, new connection on newfd
+    struct sockaddr_storage their_addr; // connector's address information
+    char s[INET6_ADDRSTRLEN];
 
-  // Start reaping child processes
-  start_reaper();
+    // Start reaping child processes
+    start_reaper();
 
-  // Get a listening socket
-  int listenfd = get_listener_socket(PORT);
+    // Get a listening socket
+    int listenfd = get_listener_socket(PORT);
 
-  if (listenfd < 0) {
+    if (listenfd < 0) {
     fprintf(stderr, "webserver: fatal error getting listening socket\n");
     exit(1);
-  }
+    }
 
-  printf("webserver: waiting for connections... on port %s\n", PORT);
+    printf("webserver: waiting for connections... on port %s\n", PORT);
 
-  // This is the main loop that accepts incoming connections and
-  // fork()s a handler process to take care of it. The main parent
-  // process then goes back to waiting for new connections.
-  
-  while(1) {
+    // This is the main loop that accepts incoming connections and
+    // fork()s a handler process to take care of it. The main parent
+    // process then goes back to waiting for new connections.
+
+    while(1) {
     socklen_t sin_size = sizeof their_addr;
 
     // Parent process will block on the accept() call until someone
@@ -353,7 +377,7 @@ int main(void)
       get_in_addr((struct sockaddr *)&their_addr),
       s, sizeof s);
     printf("server: got connection from %s\n", s);
-    
+
     // newfd is a new socket descriptor for the new connection.
     // listenfd is still listening for new connections.
 
@@ -364,10 +388,10 @@ int main(void)
 
     // Done with this
     close(newfd);
-  }
+    }
 
-  // Unreachable code
+    // Unreachable code
 
-  return 0;
+    return 0;
 }
 
