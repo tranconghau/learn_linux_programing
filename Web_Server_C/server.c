@@ -46,15 +46,15 @@
  * fork().
  */
 void sigchld_handler(int s) {
-  (void)s; // quiet unused variable warning
+    (void)s; // quiet unused variable warning
 
-  // waitpid() might overwrite errno, so we save and restore it:
-  int saved_errno = errno;
+    // waitpid() might overwrite errno, so we save and restore it:
+    int saved_errno = errno;
 
-  // Wait for all children that have died, discard the exit status
-  while(waitpid(-1, NULL, WNOHANG) > 0);
+    // Wait for all children that have died, discard the exit status
+    while(waitpid(-1, NULL, WNOHANG) > 0);
 
-  errno = saved_errno;
+    errno = saved_errno;
 }
 
 /**
@@ -69,15 +69,15 @@ void sigchld_handler(int s) {
  */
 void start_reaper(void)
 {
-  struct sigaction sa;
+    struct sigaction sa;
 
-  sa.sa_handler = sigchld_handler; // Reap all dead processes
-  sigemptyset(&sa.sa_mask);
-  sa.sa_flags = SA_RESTART; // Restart signal handler if interrupted
-  if (sigaction(SIGCHLD, &sa, NULL) == -1) {
-    perror("sigaction");
-    exit(1);
-  }
+    sa.sa_handler = sigchld_handler; // Reap all dead processes
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_RESTART; // Restart signal handler if interrupted
+    if (sigaction(SIGCHLD, &sa, NULL) == -1) {
+        perror("sigaction");
+        exit(1);
+    }
 }
 
 /**
@@ -87,11 +87,11 @@ void start_reaper(void)
  */
 void *get_in_addr(struct sockaddr *sa)
 {
-  if (sa->sa_family == AF_INET) {
-    return &(((struct sockaddr_in*)sa)->sin_addr);
-  }
+    if (sa->sa_family == AF_INET) {
+        return &(((struct sockaddr_in*)sa)->sin_addr);
+    }
 
-  return &(((struct sockaddr_in6*)sa)->sin6_addr);
+    return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
 /**
@@ -101,79 +101,79 @@ void *get_in_addr(struct sockaddr *sa)
  */
 int get_listener_socket(char *port)
 {
-  int sockfd;
-  struct addrinfo hints, *servinfo, *p;
-  int yes=1;
-  int rv;
+    int sockfd;
+    struct addrinfo hints, *servinfo, *p;
+    int yes=1;
+    int rv;
 
-  // This block of code looks at the local network interfaces and
-  // tries to find some that match our requirements (namely either
-  // IPv4 or IPv6 (AF_UNSPEC) and TCP (SOCK_STREAM) and use any IP on
-  // this machine (AI_PASSIVE).
+    // This block of code looks at the local network interfaces and
+    // tries to find some that match our requirements (namely either
+    // IPv4 or IPv6 (AF_UNSPEC) and TCP (SOCK_STREAM) and use any IP on
+    // this machine (AI_PASSIVE).
 
-  memset(&hints, 0, sizeof hints);
-  hints.ai_family = AF_UNSPEC;
-  hints.ai_socktype = SOCK_STREAM;
-  hints.ai_flags = AI_PASSIVE; // use my IP
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE; // use my IP
 
-  if ((rv = getaddrinfo(NULL, port, &hints, &servinfo)) != 0) {
-    fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-    return -1;
-  }
-
-  // Once we have a list of potential interfaces, loop through them
-  // and try to set up a socket on each. Quit looping the first time
-  // we have success.
-  for(p = servinfo; p != NULL; p = p->ai_next) {
-
-    // Try to make a socket based on this candidate interface
-    if ((sockfd = socket(p->ai_family, p->ai_socktype,
-        p->ai_protocol)) == -1) {
-      //perror("server: socket");
-      continue;
+    if ((rv = getaddrinfo(NULL, port, &hints, &servinfo)) != 0) {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+        return -1;
     }
 
-    // SO_REUSEADDR prevents the "address already in use" errors
-    // that commonly come up when testing servers.
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes,
-        sizeof(int)) == -1) {
-      perror("setsockopt");
-      close(sockfd);
-      freeaddrinfo(servinfo); // all done with this structure
-      return -2;
+    // Once we have a list of potential interfaces, loop through them
+    // and try to set up a socket on each. Quit looping the first time
+    // we have success.
+    for(p = servinfo; p != NULL; p = p->ai_next) {
+
+        // Try to make a socket based on this candidate interface
+        if ((sockfd = socket(p->ai_family, p->ai_socktype,
+            p->ai_protocol)) == -1) {
+            //perror("server: socket");
+            continue;
+        }
+
+        // SO_REUSEADDR prevents the "address already in use" errors
+        // that commonly come up when testing servers.
+        if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes,
+            sizeof(int)) == -1) {
+            perror("setsockopt");
+            close(sockfd);
+            freeaddrinfo(servinfo); // all done with this structure
+            return -2;
+        }
+
+        // See if we can bind this socket to this local IP address. This
+        // associates the file descriptor (the socket descriptor) that
+        // we will read and write on with a specific IP address.
+        if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
+            close(sockfd);
+            //perror("server: bind");
+            continue;
+        }
+
+        // If we got here, we got a bound socket and we're done
+        break;
     }
 
-    // See if we can bind this socket to this local IP address. This
-    // associates the file descriptor (the socket descriptor) that
-    // we will read and write on with a specific IP address.
-    if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
-      close(sockfd);
-      //perror("server: bind");
-      continue;
+    freeaddrinfo(servinfo); // all done with this structure
+
+    // If p is NULL, it means we didn't break out of the loop, above,
+    // and we don't have a good socket.
+    if (p == NULL)  {
+        fprintf(stderr, "webserver: failed to find local address\n");
+        return -3;
     }
 
-    // If we got here, we got a bound socket and we're done
-    break;
-  }
+    // Start listening. This is what allows remote computers to connect
+    // to this socket/IP.
+    if (listen(sockfd, BACKLOG) == -1) {
+        //perror("listen");
+        close(sockfd);
+        return -4;
+    }
 
-  freeaddrinfo(servinfo); // all done with this structure
-
-  // If p is NULL, it means we didn't break out of the loop, above,
-  // and we don't have a good socket.
-  if (p == NULL)  {
-    fprintf(stderr, "webserver: failed to find local address\n");
-    return -3;
-  }
-
-  // Start listening. This is what allows remote computers to connect
-  // to this socket/IP.
-  if (listen(sockfd, BACKLOG) == -1) {
-    //perror("listen");
-    close(sockfd);
-    return -4;
-  }
-
-  return sockfd;
+    return sockfd;
 }
 
 /**
@@ -187,23 +187,23 @@ int get_listener_socket(char *port)
  */
 int send_response(int fd, char *header, char *content_type, char *body)
 {
-  const int max_response_size = 65536;
-  char response[max_response_size];
-  int response_length; // Total length of header plus body
+    const int max_response_size = 65536;
+    char response[max_response_size];
+    int response_length; // Total length of header plus body
 
-  // !!!!  IMPLEMENT ME
+    // !!!!  IMPLEMENT ME
 
-  response_length = sprintf(response, "%s\r\n%s\r\n\r\n%s\n", header, content_type, body);
-  printf("My response:\n%s\n", response);
+    response_length = sprintf(response, "%s\nContent-Type: %s\n\n%s\n", header, content_type, body);
+    printf("My response:\n%sLength: %d\n", response, response_length);
 
-  // Send it all!
-  int rv = send(fd, response, response_length, 0);
+    // Send it all!
+    int rv = send(fd, response, response_length, 0);
 
-  if (rv < 0) {
-    perror("send");
-  }
+    if (rv < 0) {
+        perror("send");
+    }
 
-  return rv;
+    return rv;
 }
 
 
@@ -212,7 +212,7 @@ int send_response(int fd, char *header, char *content_type, char *body)
  */
 void resp_404(int fd)
 {
-  send_response(fd, "HTTP/1.1 404 NOT FOUND", "text/html", "<h1>404 Page Not Found</h1>");
+    send_response(fd, "HTTP/1.1 404 NOT FOUND", "text/html", "<h1>404 Page Not Found</h1>");
 }
 
 /**
@@ -220,8 +220,8 @@ void resp_404(int fd)
  */
 void get_root(int fd)
 {
-  // !!!! IMPLEMENT ME
-    send_response(fd, "HTTP/1.1 200 OK", "text/html", "<h1>Hello world</h1>");
+    // !!!! IMPLEMENT ME
+    send_response(fd, "HTTP/1.1 200 OK", "text/html", "<h1>Hello world!</h1>");
 }
 
 /**
@@ -271,7 +271,7 @@ void handle_http_request(int fd)
 {
     const int request_buffer_size = 65536; // 64K
     char request[request_buffer_size];
-    char *p;
+    // char *p;
     char request_type[8]; // GET or POST
     char request_path[1024]; // /info etc.
     char request_protocol[128]; // HTTP/1.1
@@ -281,8 +281,8 @@ void handle_http_request(int fd)
     int bytes_recvd = recv(fd, request, request_buffer_size - 1, 0);
 
     if (bytes_recvd < 0) {
-    perror("recv");
-    return;
+        perror("recv");
+        return;
     }
 
     // NUL terminate request string
@@ -302,25 +302,29 @@ void handle_http_request(int fd)
 
     while(token != NULL)
     {
-    printf("My line: %s\n", token);
-    token = strtok(NULL, "\n");
+        printf("My line: %s\n", token);
+        token = strtok(NULL, "\n");
     }
 
     if (strcmp(request_type,"GET") == 0)
     {
-    //do GET
-    if (strcmp(request_path, "/") == 0)
-    {
-        get_root(fd);
-    }
-    else if (strcmp(request_path, "/d20") == 0)
-    {
-    //get_d20(fd);
-    }
-    else if (strcmp(request_path, "/date") == 0)
-    {
-    //get_date(fd);
-    }
+        //do GET
+        if (strcmp(request_path, "/") == 0)
+        {
+            get_root(fd);
+        }
+        else if (strcmp(request_path, "/favicon.ico") == 0)
+        {
+            resp_404(fd);
+        }
+        else if (strcmp(request_path, "/d20") == 0)
+        {
+        //get_d20(fd);
+        }
+        else if (strcmp(request_path, "/date") == 0)
+        {
+        //get_date(fd);
+        }
     } 
     else if (strcmp(request_type,"POST") == 0)
     {
@@ -351,8 +355,8 @@ int main(void)
     int listenfd = get_listener_socket(PORT);
 
     if (listenfd < 0) {
-    fprintf(stderr, "webserver: fatal error getting listening socket\n");
-    exit(1);
+        fprintf(stderr, "webserver: fatal error getting listening socket\n");
+        exit(1);
     }
 
     printf("webserver: waiting for connections... on port %s\n", PORT);
@@ -362,32 +366,32 @@ int main(void)
     // process then goes back to waiting for new connections.
 
     while(1) {
-    socklen_t sin_size = sizeof their_addr;
+        socklen_t sin_size = sizeof their_addr;
 
-    // Parent process will block on the accept() call until someone
-    // makes a new connection:
-    newfd = accept(listenfd, (struct sockaddr *)&their_addr, &sin_size);
-    if (newfd == -1) {
-      perror("accept");
-      continue;
-    }
+        // Parent process will block on the accept() call until someone
+        // makes a new connection:
+        newfd = accept(listenfd, (struct sockaddr *)&their_addr, &sin_size);
+        if (newfd == -1) {
+            perror("accept");
+            continue;
+        }
 
-    // Print out a message that we got the connection
-    inet_ntop(their_addr.ss_family,
-      get_in_addr((struct sockaddr *)&their_addr),
-      s, sizeof s);
-    printf("server: got connection from %s\n", s);
+        // Print out a message that we got the connection
+        inet_ntop(their_addr.ss_family,
+          get_in_addr((struct sockaddr *)&their_addr),
+          s, sizeof s);
+        printf("server: got connection from %s\n", s);
 
-    // newfd is a new socket descriptor for the new connection.
-    // listenfd is still listening for new connections.
+        // newfd is a new socket descriptor for the new connection.
+        // listenfd is still listening for new connections.
 
-    // !!!! IMPLEMENT ME (stretch goal)
-    // Convert this to be multiprocessed with fork()
+        // !!!! IMPLEMENT ME (stretch goal)
+        // Convert this to be multiprocessed with fork()
 
-    handle_http_request(newfd);
+        handle_http_request(newfd);
 
-    // Done with this
-    close(newfd);
+        // Done with this
+        close(newfd);
     }
 
     // Unreachable code
